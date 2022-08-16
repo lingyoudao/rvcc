@@ -16,14 +16,26 @@ rvcc: $(OBJS)
 # 所有的可重定位文件依赖于rvcc.h的头文件
 $(OBJS): rvcc.h
 
-# 测试标签，运行测试脚本
-test: rvcc
-	./test.sh
-	./test-driver.sh
+TEST_SRCS=$(wildcard test/*.c)
+TESTS=$(TEST_SRCS:.c=.exe)
+
+# 测试标签，运行测试
+test/%.exe: rvcc test/%.c
+	$(CC) -o- -E -P -C test/$*.c | ./rvcc -o test/$*.s -
+#	$(RISCV)/bin/riscv64-unknown-linux-gnu-gcc -o- -E -P -C test/$*.c | ./rvcc -o test/$*.s -
+	$(CC) -static -o $@ test/$*.s -xc test/common
+#	$(RISCV)/bin/riscv64-unknown-linux-gnu-gcc -static -o $@ test/$*.s -xc test/common
+
+test: $(TESTS)
+	for i in $^; do echo $$i; ./$$i || exit 1; echo; done
+#	for i in $^; do echo $$i; $(RISCV)/bin/qemu-riscv64 -L $(RISCV)/sysroot ./$$i || exit 1; echo; done
+#	for i in $^; do echo $$i; $(RISCV)/bin/spike --isa=rv64gc $(RISCV)/riscv64-unknown-linux-gnu/bin/pk ./$$i || exit 1; echo; done
+	test/driver.sh
 
 # 清理标签，清理所有非源代码文件
 clean:
-	rm -f rvcc *.o *.s tmp* a.out
+	rm -rf rvcc tmp* $(TESTS) test/*.s test/*.exe
+	find * -type f '(' -name '*~' -o -name '*.o' ')' -exec rm {} ';'
 
 # 伪目标，没有实际的依赖文件
 .PHONY: test clean
