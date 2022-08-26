@@ -165,8 +165,8 @@ static int readPunct(char *Ptr) {
 // 判断是否为关键字
 static bool isKeyword(Token *Tok) {
   // 关键字列表
-  static char *Kw[] = {"return", "if",  "else",   "for",
-                       "while",  "int", "sizeof", "char"};
+  static char *Kw[] = {"return", "if",     "else", "for",   "while",
+                       "int",    "sizeof", "char", "struct"};
 
   // 遍历关键字列表匹配
   for (int I = 0; I < sizeof(Kw) / sizeof(*Kw); ++I) {
@@ -404,7 +404,7 @@ static char *readFile(char *Path) {
   FILE *Out = open_memstream(&Buf, &BufLen);
 
   // 读取整个文件
-  while(true) {
+  while (true) {
     char Buf2[4096];
     // fread从文件流中读取数据到数组中
     // 数组指针Buf2，数组元素大小1，数组元素个数4096，文件流指针
