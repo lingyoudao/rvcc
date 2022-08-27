@@ -1015,6 +1015,11 @@ static Token *function(Token *Tok, Type *BaseTy) {
 
   Obj *Fn = newGVar(getIdent(Ty->Name), Ty);
   Fn->isFunction = true;
+  Fn->isDefinition = !consume(&Tok, Tok, ";");
+
+  // 判断是否没有函数定义
+  if (!Fn->isDefinition)
+    return Tok;
 
   // 清空全局变量Locals
   Locals = NULL;
