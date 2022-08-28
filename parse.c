@@ -73,6 +73,7 @@ static Scope *Scp = &(Scope){};
 // postfix = primary ("[" expr "]" | "." ident)* | "->" ident)*
 // primary = "(" "{" stmt+ "}" ")"
 //         | "(" expr ")"
+//         | "sizeof" "(" typeName ")"
 //         | "sizeof" unary
 //         | ident funcArgs?
 //         | str
@@ -421,6 +422,31 @@ static Type *declarator(Token **Rest, Token *Tok, Type *Ty) {
   // 变量名 或 函数名
   Ty->Name = Tok;
   return Ty;
+}
+
+// abstract-declarator = "*"* ("(" abstract-declarator ")")? type-suffix
+static Type *abstractDeclarator(Token **Rest, Token *Tok, Type *Ty) {
+  while (equal(Tok, "*")) {
+    Ty = pointerTo(Ty);
+    Tok = Tok->Next;
+  }
+
+  if (equal(Tok, "(")) {
+    Token *Start = Tok;
+    Type Dummy = {};
+    abstractDeclarator(&Tok, Start->Next, &Dummy);
+    Tok = skip(Tok, ")");
+    Ty = typeSuffix(Rest, Tok, Ty);
+    return abstractDeclarator(&Tok, Start->Next, Ty);
+  }
+
+  return typeSuffix(Rest, Tok, Ty);
+}
+
+// type-name = declspec abstract-declarator
+static Type *typename(Token **Rest, Token *Tok) {
+  Type *Ty = declspec(&Tok, Tok, NULL);
+  return abstractDeclarator(Rest, Tok, Ty);
 }
 
 // declaration =
@@ -1028,11 +1054,14 @@ static Node *funCall(Token **Rest, Token *Tok) {
 // 解析括号、数字、变量
 // primary = "(" "{" stmt+ "}" ")"
 //         | "(" expr ")"
+//         | "sizeof" "(" typeName ")"
 //         | "sizeof" unary
 //         | ident funcArgs?
 //         | str
 //         | num
 static Node *primary(Token **Rest, Token *Tok) {
+  Token *Start = Tok;
+
   // "(" "{" stmt+ "}" ")"
   if (equal(Tok, "(") && equal(Tok->Next, "{")) {
     // This is a GNU statement expresssion.
@@ -1047,6 +1076,13 @@ static Node *primary(Token **Rest, Token *Tok) {
     Node *Nd = expr(&Tok, Tok->Next);
     *Rest = skip(Tok, ")");
     return Nd;
+  }
+
+  if (equal(Tok, "sizeof") && equal(Tok->Next, "(") &&
+      isTypename(Tok->Next->Next)) {
+    Type *Ty = typename(&Tok, Tok->Next->Next);
+    *Rest = skip(Tok, ")");
+    return newNum(Ty->Size, Start);
   }
 
   // "sizeof" unary
