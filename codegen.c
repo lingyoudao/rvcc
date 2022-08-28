@@ -135,6 +135,45 @@ static void store(Type *Ty) {
     printLn("  sd a0, 0(a1)");
 };
 
+enum { I8, I16, I32, I64 };
+
+static int getTypeId(Type *Ty) {
+  switch (Ty->Kind) {
+  case TY_CHAR:
+    return I8;
+  case TY_SHORT:
+    return I16;
+  case TY_INT:
+    return I32;
+  default:
+    return I64;
+  }
+}
+
+// 类型映射表
+static char i64i8[] = "  slli a0, a0, 56\n  srai a0, a0, 56";
+static char i64i16[] = "  slli a0, a0, 48\n  srai a0, a0, 48";
+static char i64i32[] = "  slli a0, a0, 32\n  srai a0, a0, 32";
+
+// 所有类型转换表
+static char *castTable[10][10] = {
+    //{到i8, 到i16，到i32，到i64}
+    {NULL, NULL, NULL, NULL},      // 从i8转换
+    {i64i8, NULL, NULL, NULL},     // 从i16转换
+    {i64i8, i64i16, NULL, NULL},   // 从i32转换
+    {i64i8, i64i16, i64i32, NULL}, // 从i64转换
+};
+
+static void cast(Type *From, Type *To) {
+  if (To->Kind == TY_VOID)
+    return;
+
+  int T1 = getTypeId(From);
+  int T2 = getTypeId(To);
+  if (castTable[T1][T2])
+    printLn("  %s", castTable[T1][T2]);
+}
+
 // 生成表达式
 static void genExpr(Node *Nd) {
   // .loc 文件编号 行号
@@ -188,6 +227,11 @@ static void genExpr(Node *Nd) {
   case ND_COMMA:
     genExpr(Nd->LHS);
     genExpr(Nd->RHS);
+    return;
+  // 类型转换
+  case ND_CAST:
+    genExpr(Nd->LHS);
+    cast(Nd->LHS->Ty, Nd->Ty);
     return;
   // 函数调用
   case ND_FUNCALL: {
