@@ -157,6 +157,7 @@ struct Node {
   int64_t Val; // 存储ND_NUM种类的值
 };
 
+Node *newCast(Node *Expr, Type *Ty);
 // 语法解析入口函数
 Obj *parse(Token *Tok);
 

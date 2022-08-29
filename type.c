@@ -53,6 +53,20 @@ Type *arrayOf(Type *Base, int Len) {
   return Ty;
 }
 
+static Type *getCommonType(Type *Ty1, Type *Ty2) {
+  if (Ty1->Base)
+    return pointerTo(Ty1->Base);
+  if (Ty1->Size == 8 || Ty2->Size == 8)
+    return TyLong;
+  return TyInt;
+}
+
+static void usualArithConv(Node **LHS, Node **RHS) {
+  Type *Ty = getCommonType((*LHS)->Ty, (*RHS)->Ty);
+  *LHS = newCast(*LHS, Ty);
+  *RHS = newCast(*RHS, Ty);
+}
+
 // 为节点内的所有节点添加类型
 void addType(Node *Nd) {
   // 判断 节点是否为空 或者 节点类型已经有值，那么就直接返回
@@ -76,19 +90,31 @@ void addType(Node *Nd) {
     addType(N);
 
   switch (Nd->Kind) {
+  // 判断是否Val强制转换为int后依然完整
+  case ND_NUM:
+    Nd->Ty = (Nd->Val == (int)Nd->Val) ? TyInt : TyLong;
+    return;
   // 节将节点类型设为 节点左部的类型
   case ND_ADD:
   case ND_SUB:
   case ND_MUL:
   case ND_DIV:
-  case ND_NEG:
+    usualArithConv(&Nd->LHS, &Nd->RHS);
     Nd->Ty = Nd->LHS->Ty;
     return;
+  case ND_NEG: {
+    Type *Ty = getCommonType(TyInt, Nd->LHS->Ty);
+    Nd->LHS = newCast(Nd->LHS, Ty);
+    Nd->Ty = Ty;
+    return;
+  }
     // 将节点类型设为 节点左部的类型
     // 左部不能是数组节点
   case ND_ASSIGN:
     if (Nd->LHS->Ty->Kind == TY_ARRAY)
       errorTok(Nd->LHS->Tok, "not an lvalue");
+    if (Nd->LHS->Ty->Kind != TY_STRUCT)
+      Nd->RHS = newCast(Nd->RHS, Nd->LHS->Ty);
     Nd->Ty = Nd->LHS->Ty;
     return;
   // 将节点类型设为 int
@@ -96,7 +122,9 @@ void addType(Node *Nd) {
   case ND_NE:
   case ND_LT:
   case ND_LE:
-  case ND_NUM:
+    usualArithConv(&Nd->LHS, &Nd->RHS);
+    Nd->Ty = TyInt;
+    return;
   case ND_FUNCALL:
     Nd->Ty = TyLong;
     return;
