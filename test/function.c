@@ -31,6 +31,11 @@ int fib(int x) {
   return fib(x-1) + fib(x-2);
 }
 
+// [57] 支持long类型
+int sub_long(long a, long b, long c) {
+  return a - b - c;
+}
+
 int main() {
   ASSERT(3, ret3());
   ASSERT(8, add2(3, 5));
